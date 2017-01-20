@@ -1,0 +1,28 @@
+---
+title: "EDA"
+author: "Keith Williams"
+date: "January 19, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse) # data wrangling and visualization
+
+# file should exist in the parent directory of the repo
+# parent/
+# |-> 10kDiabetes.csv
+# |-> kdd-diabetes/
+# |   |-> R/
+file_name <- "../../10kDiabetes.csv"
+
+# read file
+diabetes <- read_csv(file_name)
+
+# view structure
+glimpse(diabetes)
+```
+
