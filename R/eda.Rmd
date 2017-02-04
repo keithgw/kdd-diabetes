@@ -11,7 +11,7 @@ output:
 knitr::opts_chunk$set(echo = TRUE, warnings = FALSE, message = FALSE)
 ```
 
-```{r}
+```{r load}
 library(tidyverse) # data wrangling and visualization
 
 # file should exist in the parent directory of the repo
@@ -27,7 +27,7 @@ diabetes <- read_csv(file_name, na = c("?", ""))
 
 ## Introduce the rows and columns  
 
-```{r}
+```{r structure}
 # view structure
 glimpse(diabetes)
 
@@ -39,7 +39,7 @@ There are 10,000 records, 39.65% of which were readmitted within 30 days. Featur
 
 ## Use descriptive statistics to describe the data  
 
-```{r, fig.height = 6}
+```{r missing values, fig.height = 6}
 # proportion of missing records for each variable
 prop_na <- map_dbl(diabetes, ~mean(is.na(.x)))
 data_frame(variable = names(prop_na), proportion_na = prop_na) %>% 
@@ -51,7 +51,7 @@ data_frame(variable = names(prop_na), proportion_na = prop_na) %>%
 
 Weight, payer code, and medical specialty have so many missing values, that they likely won't be useful. It may be possible to impute admission_source_id, admission_type_id, discharge_disposition_id, race, and the diagnoses.  
 
-```{r, fig.height = 8}
+```{r demographics, fig.height = 8}
 # demographic distributions
 race_plot <- ggplot(diabetes, aes(race, fill = readmitted)) + geom_bar()
 age_plot <- ggplot(diabetes, aes(age, fill = readmitted)) + geom_bar()
@@ -60,7 +60,7 @@ gender_plot <- ggplot(diabetes, aes(gender, fill = readmitted)) + geom_bar()
 gridExtra::grid.arrange(race_plot, age_plot, gender_plot)
 ```
 
-```{r, fig.height = 7, fig.width = 9}
+```{r numeric distributions, fig.height = 7, fig.width = 9}
 # summarise numeric columns
 numeric_cols <- diabetes[, map_lgl(diabetes, ~is.numeric(.x))] %>% 
     select(-rowID)
@@ -85,7 +85,7 @@ ggplot(tidy_numeric_cols, aes(value, color = readmitted, fill = readmitted)) +
     facet_wrap(~variable, scales = "free")
 ```
 
-```{r, fig.width = 9, fig.height = 11}
+```{r medications, fig.width = 9, fig.height = 11}
 # medications
 select(diabetes, max_glu_serum:readmitted) %>% 
     gather("med", "description", -readmitted) %>% 
@@ -112,20 +112,20 @@ One can see that some the medications have zero or near-zero variance:
 These medications will not be useful in predicting readmission with little to no variance among records.    
 
 Of particular interest, it appears "change" has a much higher proportion of readmissions than no change:  
-```{r}
+```{r change meds}
 ggplot(diabetes, aes(change, fill = readmitted)) + 
     geom_bar(position = "fill")
 ```
 
 Also, A1Cresult seems to have an association with readmission:  
-```{r}
+```{r A1Cresult}
 diabetes %>% 
     mutate(A1C_tested = ifelse(A1Cresult == "None", "not_tested", "tested")) %>% 
 ggplot(aes(A1C_tested, fill = readmitted)) +
     geom_bar(position = "fill")
 ```
 
-```{r, fig.width = 9, fig.height = 6}
+```{r diagnosis wordcloud, fig.width = 9, fig.height = 6}
 # look for commonalities in primary diagnosis
 stringr::str_replace_all(diabetes$diag_1_desc, pattern = "unspecified", "") %>% 
 wordcloud::wordcloud(max.words = 250, 

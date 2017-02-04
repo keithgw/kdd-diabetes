@@ -108,7 +108,7 @@ data_frame(variable = names(prop_na), proportion_na = prop_na) %>%
     coord_flip()
 ```
 
-![](eda_files/figure-html/unnamed-chunk-3-1.png)<!-- -->
+![](eda_files/figure-html/missing values-1.png)<!-- -->
 
 Weight, payer code, and medical specialty have so many missing values, that they likely won't be useful. It may be possible to impute admission_source_id, admission_type_id, discharge_disposition_id, race, and the diagnoses.  
 
@@ -122,7 +122,7 @@ gender_plot <- ggplot(diabetes, aes(gender, fill = readmitted)) + geom_bar()
 gridExtra::grid.arrange(race_plot, age_plot, gender_plot)
 ```
 
-![](eda_files/figure-html/unnamed-chunk-4-1.png)<!-- -->
+![](eda_files/figure-html/demographics-1.png)<!-- -->
 
 
 ```r
@@ -164,7 +164,7 @@ ggplot(tidy_numeric_cols, aes(factor(0), value)) +
     theme(axis.text.y = element_blank(), axis.ticks.y = element_blank())
 ```
 
-![](eda_files/figure-html/unnamed-chunk-5-1.png)<!-- -->
+![](eda_files/figure-html/numeric distributions-1.png)<!-- -->
 
 ```r
 # Distribution by readmission status
@@ -173,7 +173,7 @@ ggplot(tidy_numeric_cols, aes(value, color = readmitted, fill = readmitted)) +
     facet_wrap(~variable, scales = "free")
 ```
 
-![](eda_files/figure-html/unnamed-chunk-5-2.png)<!-- -->
+![](eda_files/figure-html/numeric distributions-2.png)<!-- -->
 
 
 ```r
@@ -185,7 +185,7 @@ select(diabetes, max_glu_serum:readmitted) %>%
     facet_wrap(~med, scales = "free_x", ncol = 4)
 ```
 
-![](eda_files/figure-html/unnamed-chunk-6-1.png)<!-- -->
+![](eda_files/figure-html/medications-1.png)<!-- -->
 
 One can see that some the medications have zero or near-zero variance:  
     - acarbose  
@@ -211,7 +211,7 @@ ggplot(diabetes, aes(change, fill = readmitted)) +
     geom_bar(position = "fill")
 ```
 
-![](eda_files/figure-html/unnamed-chunk-7-1.png)<!-- -->
+![](eda_files/figure-html/change meds-1.png)<!-- -->
 
 Also, A1Cresult seems to have an association with readmission:  
 
@@ -222,7 +222,7 @@ ggplot(aes(A1C_tested, fill = readmitted)) +
     geom_bar(position = "fill")
 ```
 
-![](eda_files/figure-html/unnamed-chunk-8-1.png)<!-- -->
+![](eda_files/figure-html/A1Cresult-1.png)<!-- -->
 
 
 ```r
@@ -233,5 +233,5 @@ wordcloud::wordcloud(max.words = 250,
                      colors = viridis::viridis(n = 7))
 ```
 
-![](eda_files/figure-html/unnamed-chunk-9-1.png)<!-- -->
+![](eda_files/figure-html/diagnosis wordcloud-1.png)<!-- -->
 
