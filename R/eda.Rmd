@@ -133,3 +133,47 @@ wordcloud::wordcloud(max.words = 250,
                      colors = viridis::viridis(n = 7))
 ```
 
+## Prepare Modeling Dataset
+
+```{r}
+# dropping columns due to missingness, near zero variance, and irrelevance for modeling (IDs)
+for_model <- diabetes %>% 
+    select(-c(rowID,
+              weight,
+              payer_code,
+              medical_specialty,
+              diag_1,
+              diag_1_desc,
+              diag_2,
+              diag_2_desc,
+              diag_3,
+              diag_3_desc,
+              acarbose,
+              acetohexamide,
+              chlorpropamide,
+              citoglipton,
+              examide,
+              glimepiride.pioglitazone,
+              glipizide.metformin,
+              metformin.pioglitazone,
+              metformin.rosiglitazone,
+              miglitol,
+              nateglinide,
+              tolazamide,
+              tolbutamide,
+              troglitazone
+              )) %>% 
+    # fill missing admission source and types and discharge disposition with 'Not Available'
+    tidyr::replace_na(list(admission_source_id = "Not Available", 
+                           admission_type_id = "Not Available",
+                           discharge_disposition_id = "Not Available")) %>% 
+    # map A1C results into tested and not
+    mutate(A1C_tested = ifelse(A1Cresult == "None", "not_tested", "tested"))
+```
+
+```{r}
+for_model %>% 
+    as.data.frame() %>% 
+    saveRDS('../../data_for_modeling.rds')
+```
+
