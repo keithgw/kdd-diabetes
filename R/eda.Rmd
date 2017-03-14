@@ -169,11 +169,26 @@ for_model <- diabetes %>%
                            discharge_disposition_id = "Not Available")) %>% 
     # map A1C results into tested and not
     mutate(A1C_tested = ifelse(A1Cresult == "None", "not_tested", "tested"))
+    
+```
+
+```{r dummy categorical}
+library(caret)
+diabetes_dummy <- dummyVars(~ race + gender + age + admission_type_id + max_glu_serum +
+                            A1Cresult , data = diabetes, levelsOnly = TRUE,fullRank = T)
+frame <- data.frame( predict(diabetes_dummy, newdata = diabetes ) )
+for_model <- cbind(for_model,frame)
+glimpse(for_model)
 ```
 
 ```{r}
 for_model %>% 
     as.data.frame() %>% 
     saveRDS('../../data_for_modeling.rds')
+```
+
+
+```{r}
+data_for_model <- readRDS('../../data_for_modeling.rds')
 ```
 
