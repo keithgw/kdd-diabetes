@@ -192,3 +192,32 @@ for_model %>%
 data_for_model <- readRDS('../../data_for_modeling.rds')
 ```
 
+```{r pearson's correlation analysis}
+library(Hmisc)
+proceduresData <- subset(for_model,select=c("time_in_hospital","num_lab_procedures","num_procedures","number_outpatient","number_inpatient","number_emergency"))
+
+matrix <- as.matrix(proceduresData)
+rcorr(matrix,type="pearson")
+
+```
+
+```{r chi-square analysis}
+library(gmodels)
+CrossTable(for_model$glimepiride, for_model$readmitted, chisq = TRUE, expected = TRUE, format = "SPSS")
+
+```
+
+
+```{r chi-square test}
+
+CrossTable( for_model$readmitted , for_model$insulin , chisq = TRUE, expected = TRUE, format = "SPSS")
+CrossTable( for_model$readmitted , for_model$A1Cresult , chisq = TRUE, expected = TRUE, format = "SPSS")
+
+```
+
+
+```{r logistic regression}
+library(mlogit)
+
+
+```
