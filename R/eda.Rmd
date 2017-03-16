@@ -168,17 +168,9 @@ for_model <- diabetes %>%
                            admission_type_id = "Not Available",
                            discharge_disposition_id = "Not Available")) %>% 
     # map A1C results into tested and not
-    mutate(A1C_tested = ifelse(A1Cresult == "None", "not_tested", "tested"))
+    mutate(A1C_tested = ifelse(A1Cresult == "None", "not_tested", "tested")) %>% 
+    select(-A1Cresult)
     
-```
-
-```{r dummy categorical}
-library(caret)
-diabetes_dummy <- dummyVars(~ race + gender + age + admission_type_id + max_glu_serum +
-                            A1Cresult , data = diabetes, levelsOnly = TRUE,fullRank = T)
-frame <- data.frame( predict(diabetes_dummy, newdata = diabetes ) )
-for_model <- cbind(for_model,frame)
-glimpse(for_model)
 ```
 
 ```{r}
@@ -187,37 +179,155 @@ for_model %>%
     saveRDS('../../data_for_modeling.rds')
 ```
 
+```{r impute race}
+# convert charcters to factors to prepare for KNN  
+for_knn <- for_model %>% 
+    mutate_if(is.character, as.factor)
+
+# split into data to train KNN on race, remove response variable
+train <- for_knn %>% 
+    filter(!is.na(race)) %>% 
+    select(-readmitted)
+
+test <- for_knn %>% 
+    filter(is.na(race)) %>% 
+    select(-race, -readmitted)
+
+# fit KNN model, k = 3
+knn_mdl <- caret::knn3(race ~ ., data = train, k = 3)
+# make predictions for missing race observations
+race_imputations <- caret::predict.knn3(knn_mdl, newdata = test, type = "class")
+
+# recombine the train and newly imputed test sets
+test_imputed <- for_knn %>% 
+    filter(is.na(race))
+test_imputed$race <- race_imputations
+full_imputed <- bind_rows(filter(for_knn, !is.na(race)), test_imputed)
+```
+
+```{r dummy categorical}
+# library(caret)
+# diabetes_dummy <- dummyVars(~ race + gender + age + admission_type_id + max_glu_serum +
+#                             A1Cresult , data = diabetes, levelsOnly = TRUE,fullRank = T)
+# frame <- data.frame( predict(diabetes_dummy, newdata = diabetes ) )
+# for_model <- cbind(for_model,frame)
+# glimpse(for_model)
+
+dummied <- model.matrix(readmitted ~ ., data = full_imputed)
+```
+
+```{r correlation heatmap}
+numeric_cols <- names(full_imputed)[map_lgl(full_imputed, is.numeric)]
+
+cormat <- full_imputed %>%
+    select(one_of(numeric_cols), readmitted) %>% 
+    cor(use = "complete.obs")
+cormat[upper.tri(cormat)] <- NA
+
+cormat %>% 
+    reshape2::melt(na.rm = TRUE) %>%
+    ggplot(aes(Var2, Var1, fill = value)) +
+    geom_tile(color = 'gray90') +
+    scale_fill_gradient2(low = "#67a9cf", high = "#ef8a62", limit = c(-1, 1), name = "correlation") +
+    coord_equal() +
+    theme(axis.text.x = element_text(size = 14,angle = 45, vjust = 1, hjust = 1),
+          axis.text.y = element_text(size = 14),
+          axis.title = element_blank(),
+          panel.background = element_blank()) +
+    ggtitle("Correlation Matrix")
+```
 
 ```{r}
-data_for_model <- readRDS('../../data_for_modeling.rds')
+# data_for_model <- readRDS('../../data_for_modeling.rds')
 ```
 
-```{r pearson's correlation analysis}
-library(Hmisc)
-proceduresData <- subset(for_model,select=c("time_in_hospital","num_lab_procedures","num_procedures","number_outpatient","number_inpatient","number_emergency"))
-
+```{r pearsons correlation analysis}
+proceduresData <- subset(for_model, select =  c(numeric_cols, "readmitted"))
 matrix <- as.matrix(proceduresData)
-rcorr(matrix,type="pearson")
-
+Hmisc::rcorr(matrix,type="pearson")
 ```
 
-```{r chi-square analysis}
+```{r chi-square analysis, eval = F}
 library(gmodels)
-CrossTable(for_model$glimepiride, for_model$readmitted, chisq = TRUE, expected = TRUE, format = "SPSS")
 
+CrossTable(for_model$glimepiride, for_model$readmitted, chisq = TRUE, expected = TRUE, format = "SPSS")
 ```
 
 
-```{r chi-square test}
+```{r chi-square test, eval = F}
 
 CrossTable( for_model$readmitted , for_model$insulin , chisq = TRUE, expected = TRUE, format = "SPSS")
 CrossTable( for_model$readmitted , for_model$A1Cresult , chisq = TRUE, expected = TRUE, format = "SPSS")
 
 ```
 
+```{r PCA}
+## PCA
+pca <- prcomp(dummied)
+s <- summary(pca)
+pca_summary <- data_frame(pc = 1:91, prop_var = s$importance[2, ]) %>%
+    mutate(cumvar = cumsum(prop_var))
+
+pve <- ggplot(pca_summary, aes(pc, prop_var)) +
+    geom_line() +
+    geom_point() +
+    # scale_x_continuous(breaks = 0:91) +
+    theme(panel.grid.minor.x = element_blank()) +
+    labs(x = "Principal Component",
+         y = "Proportion of Variance Explained")
+
+cve <- ggplot(pca_summary, aes(pc, cumvar)) + 
+    geom_line() + 
+    # scale_x_continuous(breaks = 0:91) +
+    theme(panel.grid.minor.x = element_blank()) +
+    labs(x = "Principal Component",
+         y = "Cumulative Variance Explained",
+         title = "Principal Components Analysis")
+
+gridExtra::grid.arrange(cve, pve)
+```
+
+```{r}
+data_frame(PC1 = pca$x[,1], PC2 = pca$x[,2], readmitted = full_imputed$readmitted) %>% 
+    ggplot(aes(PC1, PC2, color = readmitted)) + 
+    geom_point(alpha = 0.3) +
+    scale_color_manual(values = c("#545454", "#E34949")) +
+    guides(color = guide_legend(override.aes = list(alpha = 1))) +
+    ggtitle("First Two Principal Components")
+```
+
+```{r}
+data_frame(PC1 = pca$x[,1], PC2 = pca$x[,2], readmitted = full_imputed$readmitted) %>% 
+    gather("PC", "value", PC1, PC2) %>% 
+    ggplot(aes(value, fill = readmitted, color = readmitted)) +
+    geom_density(alpha = 0.3) +
+    facet_wrap(~PC, ncol = 1, scales = "free_y") +
+    scale_color_manual(values = c("#545454", "#E34949")) +
+    scale_fill_manual(values = c("#545454", "#E34949")) +
+    ggtitle("Distribution of First Principal Component")
+```
 
 ```{r logistic regression}
-library(mlogit)
-
-
+mdl <- glm(readmitted ~ ., data = full_imputed)
+summary(mdl)
+broom::tidy(mdl) %>% 
+    filter(p.value < 0.2) %>% 
+    mutate(odds_ratio = exp(estimate),
+           readmission = ifelse(odds_ratio > 1, "More Likely", "Less Likely")) %>% 
+    ggplot(aes(reorder(term, odds_ratio), 
+               odds_ratio, 
+               fill = readmission, 
+               alpha = -p.value, 
+               color = readmission)) +
+    geom_bar(stat = "identity") +
+    scale_color_manual(values = c("#545454", "#E34949")) +
+    scale_fill_manual(values = c("#545454", "#E34949")) +
+    labs(x = "Odds Ratio",
+         y = "Feature",
+         alpha = "significance",
+         title = "Most Important Features",
+         subtitle = "Compared to race:AA, age:[0-10], admitted:Elective") +
+    guides(alpha = guide_legend(label = F)) +
+    coord_flip()
 ```
+
