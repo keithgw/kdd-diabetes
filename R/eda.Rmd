@@ -331,3 +331,61 @@ broom::tidy(mdl) %>%
     coord_flip()
 ```
 
+## Prediction Task  
+
+Going to use full, imputed data, split into train and test, then train a few algorithms to predict.  
+
+```{r}
+set.seed(666)
+# split into train and test using stratified split
+full_imputed_factor <- full_imputed %>% 
+    mutate(readmitted = as.factor(readmitted))
+inTrain <- caret::createDataPartition(full_imputed_factor$readmitted, p = 0.8, list = FALSE)
+trainXy <- full_imputed_factor[inTrain,]
+testXy <- full_imputed_factor[-inTrain,]
+```
+
+```{r}
+gbm_grid <- expand.grid(interaction.depth = c(1, 2, 3, 4, 5),
+                        n.trees = (2:8)*25,
+                        shrinkage = c(0.03, 0.1),
+                        n.minobsinnode = 20)
+fit_control <- caret::trainControl(method = "repeatedcv", number = 5, repeats = 5)
+gbm_fit <- caret::train(readmitted ~ ., data = trainXy,
+                        method = 'gbm',
+                        trControl = fit_control,
+                        tuneGrid = gbm_grid,
+                        verbose = F)
+```
+
+```{r}
+ggplot(gbm_fit) +
+    ggtitle("Cross Validation Accuracy Over Tuning Parameters")
+```
+
+```{r}
+# testing accuracy
+yhat <- predict(gbm_fit, newdata = testXy)
+caret::confusionMatrix(yhat, testXy$readmitted)
+```
+
+```{r}
+svm_fit <- caret::train(readmitted ~ ., data = trainXy,
+                        method = "svmRadial",
+                        trControl = fit_control,
+                        preProc = c("center", "scale"),
+                        tuneLength = 4,
+                        verbose = F)
+```
+
+```{r}
+ggplot(svm_fit) +
+    ggtitle("Cross Validation Accuracy Over Tuning Parameters")
+```
+
+```{r}
+# testing accuracy
+yhat <- predict(svm_fit, newdata = testXy)
+caret::confusionMatrix(yhat, testXy$readmitted)
+```
+
